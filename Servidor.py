@@ -173,31 +173,31 @@ def PrintMyRange():
     print("IDIni = " + str(IDInit))
     print("IDFin = " + str(IDFin))
     print("-----------------------------------------------------")
-    
+
 def TypeUpload(content,hashkey):
-    
+
     global PathFile
     global IDInit
     global IDFin
     global PredecesorIP
     global PredecesorPort
-    
+
     hashPart  = hashlib.new("sha1",content)
     if (hashkey != hashPart.hexdigest() ) :
         return [b"0",b"Error de integridad"]
     else:
-        
+
         if Checkintervale(IDInit,IDFin,int(hashkey, 16)) :
             path =  PathFile +"/"+ hashkey + ".rf"
             archivo = open(path,'ab')
-        
+
             archivo.write(content)
             archivo.close()
             return [b"1",b"1",Strencode(hashkey)]
         else:
             return [b"1",b"2",Strencode(PredecesorIP),Strencode(PredecesorPort)]
-            
-    
+
+
 
 def Init():
 

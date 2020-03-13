@@ -1,9 +1,10 @@
 import zmq
 import os.path
 import hashlib
+import math
 import json
 
-ps = 0
+ps = 100
 context = zmq.Context()
 
 def Strencode(strToEncode):
@@ -14,7 +15,7 @@ def Bdecode(bToEncode):
 
 def SendSocketMSJ(IpServer,PortServer,MSJ):
     global context
-    Path = "tcp://"+IpServer+":"+PortServer
+    Path = "tcp://"+str(IpServer)+":"+str(PortServer)
     socket = context.socket(zmq.REQ)
     socket.connect(Path)
     socket.send_multipart(MSJ)
@@ -23,33 +24,40 @@ def SendSocketMSJ(IpServer,PortServer,MSJ):
 
     return Msjresponse
 
-def AgregarHashDoc(hashkey):
-    print(hashkey)
+def AgregarHashDoc(hashkey,FileName):
 
-def SendPart(IPTemp,PortTemp,content,hashPart):
-    
+    FName = FileName
+    FName = FName.replace(".", "|")
+    FName = FName+".rf"
+
+    f = open(FName, "a")
+    f.write(hashkey+"\n")
+    f.close()
+
+def SendPart(IPTemp,PortTemp,content,hashPart,FileName):
+
      firstIP = IPTemp
      firstPort = PortTemp
-     
+
      while True:
-         
+
         MSJData = SendSocketMSJ(IPTemp,PortTemp,[b"1", content,Strencode(hashPart.hexdigest())])
-                  
+
         if (Bdecode(MSJData[0]) == "1"):
              if (Bdecode(MSJData[1]) == "1"):
-                    AgregarHashDoc(Bdecode(MSJData[2]))
+                    AgregarHashDoc(Bdecode(MSJData[2]),FileName)
                     return True
              elif (Bdecode(MSJData[1]) == "2"):
-                     IPTemp = MSJData[2]
-                     PortTemp = MSJData[3]
+                     IPTemp = Bdecode(MSJData[2])
+                     PortTemp = Bdecode(MSJData[3])
         else:
             print("Error interno 1"+Bdecode(MSJData[1]))
-            return False 
-             
+            return False
+
         if firstIP == IPTemp and firstPort == PortTemp :
             print("Error loop 360")
-            return False 
-    
+            return False
+
 
 def Upload():
 
@@ -58,16 +66,18 @@ def Upload():
     FilePath = input("INGRESE LA RUTA DEL ARCHIVO A SUBIR\n")
 
     if os.path.isfile(FilePath) :
-        
+
         NodeIP = input("INGRESE LA IP DE ALGUN NODO\n")
         NodeIP = "localhost"
         NodePort = input("INGRESE EL PUERTO DEL NODO\n")
 
         file = open(FilePath, "rb")
 
+        FileName = os.path.basename(file.name)
+
         file.seek(0, os.SEEK_END)
         size = file.tell()
-        NumParts =round ( size / ps )
+        NumParts = math.ceil( size / ps )
         if NumParts == 0 :
             NumParts = 1
 
@@ -81,8 +91,8 @@ def Upload():
             file.seek(int(point))
             content = file.read(ps)
             hashPart  = hashlib.new("sha1",content)
-           
-            if (SendPart(NodeIP,NodePort,content,hashPart)):
+
+            if (SendPart(NodeIP,NodePort,content,hashPart,FileName)):
 
                 print("Enviando parte "+str(count)+" de "+ str(NumParts))
 
@@ -102,12 +112,12 @@ def Upload():
 
     else:
         print("El archivo no existe")
-        
+
 
 def Menu():
-    
+
   while True:
-      
+
     print("Menu \n1.Upload\n2.Download\n")
     op =  int(input("INGRESE LA OPCIÓN\n"))
     if op == 1:
@@ -116,7 +126,7 @@ def Menu():
         return 2
     else:
         print("Opcion invalida")
-        
+
 def Init():
 
         while True:
@@ -127,7 +137,7 @@ def Init():
                 Upload()
             elif op == 2:
                 Download()
-        
+
 
 
 Init()
