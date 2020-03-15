@@ -99,7 +99,7 @@ def FirstConect():
     global IDInit
     global IDFin
     global ServerID
-    
+
 
     if not CheckFirstNode():
 
@@ -140,14 +140,14 @@ def CheckNewID(NewServerID,IP,PORT):
 
     global AntecesorIP
     global AntecesorPort
-    
+
     global MyIP
     global MyPort
 
     global ServerID
 
     if Checkintervale(IDInit,IDFin,NewServerID) :
-                    
+
         IdInicopy = IDInit
 
         if int(NewServerID) == 2**160 :
@@ -157,13 +157,13 @@ def CheckNewID(NewServerID,IP,PORT):
 
         if AntecesorIP ==  "":
              respt = [b"1",b"1",Strencode(IdInicopy),Strencode(MyIP),Strencode(MyPort)]
-       
+
         else:
              respt = [b"1",b"1",Strencode(IdInicopy),Strencode(AntecesorIP),Strencode(AntecesorPort)]
-       
+
         AntecesorIP    = IP
         AntecesorPort  = PORT
-        PrintMyRange()   
+        PrintMyRange()
         return respt
     else:
         return [b"1",b"2",Strencode(AntecesorIP),Strencode(AntecesorPort)]
@@ -202,11 +202,20 @@ def TypeUpload(content,hashkey):
         else:
             return [b"1",b"2",Strencode(AntecesorIP),Strencode(AntecesorPort)]
 
+def TypeDowload(hashkey):
 
+    if Checkintervale(IDInit,IDFin,int(hashkey, 16)) :
+        FilePath =  PathFile +"/"+ hashkey + ".rf"
+        file = open(FilePath, "rb")
+        content = file.read()
+        MSJ = [b"1",b"1",content]
+        file.close()
+        return MSJ
+
+    else:
+        return [b"1",b"2",Strencode(AntecesorIP),Strencode(AntecesorPort)]
 
 def Init():
-
-
 
         global socketEscucha
         getID()
@@ -224,6 +233,9 @@ def Init():
 
                 elif Type == "1" :
                      Respt = TypeUpload(MSJData[1],Bdecode(MSJData[2]))
+
+                elif Type == "2" :
+                     Respt = TypeDowload(Bdecode(MSJData[1]))
 
 
                 socketEscucha.send_multipart(Respt)

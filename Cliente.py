@@ -4,8 +4,12 @@ import hashlib
 import math
 import json
 
-ps = 100
+ps = 1024*1024*2
 context = zmq.Context()
+
+PathFile = os.path.dirname(os.path.abspath(__file__))
+
+SepDir = "\\"
 
 def Strencode(strToEncode):
     return str(strToEncode).encode("utf-8")
@@ -25,14 +29,28 @@ def SendSocketMSJ(IpServer,PortServer,MSJ):
     return Msjresponse
 
 def AgregarHashDoc(hashkey,FileName):
+    
+    WriteinDOC(FileName,hashkey)
+    
+def AgregarNameDoc(FileName):
+    WriteinDOC(FileName,FileName)
+    
+    
+def WriteinDOC(FileName,content):
+    
+    global PathFile
+    global SepDir
 
     FName = FileName
-    FName = FName.replace(".", "|")
+    FName = FName.split(".")
+    FName = FName[0]
     FName = FName+".rf"
-
-    f = open(FName, "a")
-    f.write(hashkey+"\n")
+    FName = PathFile +SepDir+ FName
+    
+    f = open(FName, "at")
+    f.write(content+"\n")
     f.close()
+    
 
 def SendPart(IPTemp,PortTemp,content,hashPart,FileName):
 
@@ -84,6 +102,9 @@ def Upload():
 
         count = 0
         point = 0
+        
+        AgregarNameDoc(FileName)
+        
         while True:
 
             count = count + 1
@@ -126,6 +147,85 @@ def Menu():
         return 2
     else:
         print("Opcion invalida")
+
+
+def AddParttoDoc(content,hash,Filename):
+
+    global PathFile
+    global SepDir
+
+    hashPart  = hashlib.new("sha1",content)
+
+    if hash == hashPart.hexdigest():
+        PathFileSave =  PathFile +SepDir+ Filename
+        archivo = open(PathFileSave,'ab')
+        archivo.write(content)
+        archivo.close()
+
+    else:
+        print("Error integridad archivo")
+        exit()
+
+def Download():
+
+    FilePath = input("INGRESE LA RUTA DEL ARCHIVO CON LOS HASH\n")
+
+    if os.path.isfile(FilePath) :
+
+        NodeIP = input("INGRESE LA IP DE ALGUN NODO\n")
+        NodeIP = "localhost"
+        NodePort = input("INGRESE EL PUERTO DEL NODO\n")
+
+        f = open(FilePath, "rt")
+
+        FileName = ""
+        
+        count = 0
+
+        while True:
+
+            Hash = f.readline()
+            Hash = Hash.replace("\n", "")
+            if Hash == "" :
+                break
+            elif  "." in Hash :
+                FileName = Hash
+                continue
+
+
+            IPTemp = NodeIP
+            PortTemp = NodePort
+
+            
+            count = count + 1
+            print("Descargando parte: "+str(count))
+
+            while True:
+                
+            
+                MSJData = SendSocketMSJ(NodeIP,NodePort,[b"2",Strencode(Hash)])
+                if (Bdecode(MSJData[0]) == "1"):
+
+                    if (Bdecode(MSJData[1]) == "1"):
+                           AddParttoDoc(MSJData[2],Hash,FileName)
+                           break
+
+                    elif (Bdecode(MSJData[1]) == "2"):
+                            NodeIP = Bdecode(MSJData[2])
+                            NodePort = Bdecode(MSJData[3])
+
+                else:
+                    print("Error")
+                    exit()
+
+                if NodeIP == IPTemp and NodePort == PortTemp :
+                    print("Error loop 360")
+                    exit()
+
+        print("Archivo descargado")
+
+
+
 
 def Init():
 
