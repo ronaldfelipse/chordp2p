@@ -92,6 +92,22 @@ def inToAnillo():
                 FirstPort = Bdecode(MSJData[3])
 
     IDFin = ServerID
+    Count = 0
+    
+    while True:
+        MSJData = SendSocketMSJ(FirstIP,FirstPort,[b'3',Strencode(IDInit),Strencode(IDFin)])
+        if (Bdecode(MSJData[0]) == "2"):
+            Count = Count + 1
+            print ("Trasfiriendo archivo "+str(Count))
+            path =  PathFile +"/"+ Bdecode(MSJData[2])
+            archivo = open(path,'ab')
+            archivo.write(MSJData[1])
+            archivo.close()
+            
+        else:
+            break
+        
+    
     PrintMyRange()
 
 def FirstConect():
@@ -214,6 +230,25 @@ def TypeDowload(hashkey):
 
     else:
         return [b"1",b"2",Strencode(AntecesorIP),Strencode(AntecesorPort)]
+    
+def TypeGiveFiles(IDini,IDFin):
+
+    entries = os.listdir(PathFile)
+    for entry in entries:
+        
+        if ".rf" in entry : 
+    
+            HashFile = entry.split(".")
+            HashFile = HashFile[0]
+            if Checkintervale(IDini,IDFin,int(HashFile, 16)):
+                file = open(entry, "rb")
+                content = file.read()
+                MSJ = [b"2",content,Strencode(entry)]
+                file.close()
+                os.remove(entry)
+                return MSJ
+    
+    return [b"1"]
 
 def Init():
 
@@ -236,6 +271,9 @@ def Init():
 
                 elif Type == "2" :
                      Respt = TypeDowload(Bdecode(MSJData[1]))
+                
+                elif Type == "3" :
+                     Respt = TypeGiveFiles(Bdecode(MSJData[1]),Bdecode(MSJData[2]))
 
 
                 socketEscucha.send_multipart(Respt)
