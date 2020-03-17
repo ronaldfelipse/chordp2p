@@ -3,21 +3,6 @@ import random
 import hashlib
 import os
 
-IDInit = 0
-IDFin = 0
-
-MyIP = ""
-MyPort = ""
-
-ServerID = ""
-
-AntecesorIP = ""
-AntecesorPort = ""
-
-context = zmq.Context()
-socketEscucha = context.socket(zmq.REP)
-
-PathFile = os.path.dirname(os.path.abspath(__file__))
 
 def Strencode(strToEncode):
     return str(strToEncode).encode("utf-8")
@@ -26,21 +11,17 @@ def Bdecode(bToEncode):
     return bToEncode.decode("utf-8")
 
 
-def ip_puerto():
-        global MyIP
-        MyIP = input("INGRESE LA IP del server\n")
-        MyIP = "localhost"
-        global MyPort
-        MyPort = input("INGRESE PUERTO del server\n")
+def ip_puerto(Globals):
+       
+        Globals["MyIP"] = input("INGRESE LA IP del server\n")
+       
+        Globals["MyPort"] = input("INGRESE PUERTO del server\n")
 
-ip_puerto()
 
-socketEscucha.bind("tcp://*:"+MyPort)
-
-def SendSocketMSJ(IpServer,PortServer,MSJ):
-    global context
+def SendSocketMSJ(IpServer,PortServer,MSJ,Globals):
+     
     Path = "tcp://"+IpServer+":"+PortServer
-    socket = context.socket(zmq.REQ)
+    socket = Globals["context"].socket(zmq.REQ)
     socket.connect(Path)
     socket.send_multipart(MSJ)
     Msjresponse = socket.recv_multipart()
@@ -61,45 +42,36 @@ def CheckFirstNode():
         else :
             print("Opcion invalida")
 
-def inToAnillo():
-
-    global ServerID
-    global MyIP
-    global MyPort
-    global IDFin
-    global IDInit
-    global AntecesorIP
-    global AntecesorPort
+def inToAnillo(Globals):
 
     FirstIP = input("INGRESE LA IP DE ALGUN NODO\n")
-    FirstIP = "localhost"
     FirstPort = input("INGRESE EL PUERTO DEL NODO\n")
 
     while True:
-        MSJData = SendSocketMSJ(FirstIP,FirstPort,[b'0',Strencode(ServerID),Strencode(MyIP),Strencode(MyPort)])
+        MSJData = SendSocketMSJ(FirstIP,FirstPort,[b'0',Strencode(Globals["ServerID"]),Strencode(Globals["MyIP"]),Strencode(Globals["MyPort"])],Globals)
         if (Bdecode(MSJData[0]) != "1"):
             print("Error conectandose con el nodo")
             return 0
         else:
             if (Bdecode(MSJData[1]) == "1"):
-                IDInit =   Bdecode(MSJData[2])
-                AntecesorIP = Bdecode(MSJData[3])
-                AntecesorPort = Bdecode(MSJData[4])
+                Globals["IDInit"] =   Bdecode(MSJData[2])
+                Globals["AntecesorIP"] = Bdecode(MSJData[3])
+                Globals["AntecesorPort"] = Bdecode(MSJData[4])
                 break
             else:
 
                 FirstIP = Bdecode(MSJData[2])
                 FirstPort = Bdecode(MSJData[3])
 
-    IDFin = ServerID
+    Globals["IDFin"] = Globals["ServerID"]
     Count = 0
     
     while True:
-        MSJData = SendSocketMSJ(FirstIP,FirstPort,[b'3',Strencode(IDInit),Strencode(IDFin)])
+        MSJData = SendSocketMSJ(FirstIP,FirstPort,[b'3',Strencode(Globals["IDInit"]),Strencode(Globals["IDFin"])],Globals)
         if (Bdecode(MSJData[0]) == "2"):
             Count = Count + 1
             print ("Trasfiriendo archivo "+str(Count))
-            path =  PathFile +"/"+ Bdecode(MSJData[2])
+            path =  Globals["PathFile"] +"/"+ Bdecode(MSJData[2])
             archivo = open(path,'ab')
             archivo.write(MSJData[1])
             archivo.close()
@@ -108,27 +80,22 @@ def inToAnillo():
             break
         
     
-    PrintMyRange()
+    PrintMyRange(Globals)
 
-def FirstConect():
-
-    global IDInit
-    global IDFin
-    global ServerID
-
+def FirstConect(Globals):
 
     if not CheckFirstNode():
 
-        inToAnillo()
+        inToAnillo(Globals)
 
     else:
 
-        if int(ServerID) == 2**160 :
-            IDInit = 0
+        if int(Globals["ServerID"]) == 2**160 :
+            Globals["IDInit"] = 0
         else:
-            IDInit = int(ServerID)+1
+            Globals["IDInit"] = int(Globals["ServerID"])+1
 
-        IDFin = ServerID
+        Globals["IDFin"] = Globals["ServerID"]
 
     return 1
 
@@ -140,88 +107,67 @@ def Checkintervale(inicio,Fin,Value):
         return (int(Value) >= int(inicio)  and int(Value) <= int(Fin))
 
 
-def getID():
-
-    global ServerID
-    Random = random.randint(0,100) #25
-    ServerID = Random
+def getID(Globals):
+ 
+    Random = random.randint(0,9876543219876543219876543) #25
     hash  = hashlib.new("sha1",Strencode(Random))
-    ServerID = int(hash.hexdigest(), 16)
-    print("ServerID: "+str(ServerID))
+    Globals["ServerID"] = int(hash.hexdigest(), 16)
+    print("ServerID: "+str(Globals["ServerID"]))
 
-def CheckNewID(NewServerID,IP,PORT):
+def CheckNewID(NewServerID,IP,PORT,Globals):
+    
 
-    global IDInit
-    global IDFin
+    if Checkintervale(Globals["IDInit"],Globals["IDFin"],NewServerID) :
 
-    global AntecesorIP
-    global AntecesorPort
-
-    global MyIP
-    global MyPort
-
-    global ServerID
-
-    if Checkintervale(IDInit,IDFin,NewServerID) :
-
-        IdInicopy = IDInit
+        IdInicopy = Globals["IDInit"]
 
         if int(NewServerID) == 2**160 :
-            IDInit = 0
+            Globals["IDInit"] = 0
         else:
-            IDInit = int(NewServerID)+1
+            Globals["IDInit"] = int(NewServerID)+1
 
-        if AntecesorIP ==  "":
-             respt = [b"1",b"1",Strencode(IdInicopy),Strencode(MyIP),Strencode(MyPort)]
+        if Globals["AntecesorIP"] ==  "":
+             respt = [b"1",b"1",Strencode(IdInicopy),Strencode(Globals["MyIP"]),Strencode(Globals["MyPort"])]
 
         else:
-             respt = [b"1",b"1",Strencode(IdInicopy),Strencode(AntecesorIP),Strencode(AntecesorPort)]
+             respt = [b"1",b"1",Strencode(IdInicopy),Strencode(Globals["AntecesorIP"]),Strencode(Globals["AntecesorPort"])]
 
-        AntecesorIP    = IP
-        AntecesorPort  = PORT
-        PrintMyRange()
+        Globals["AntecesorIP"]    = IP
+        Globals["AntecesorPort"]   = PORT
+        PrintMyRange(Globals)
         return respt
     else:
-        return [b"1",b"2",Strencode(AntecesorIP),Strencode(AntecesorPort)]
+        return [b"1",b"2",Strencode(Globals["AntecesorIP"]),Strencode(Globals["AntecesorPort"])]
 
-def PrintMyRange():
+def PrintMyRange(Globals):
 
-    global IDInit
-    global IDFin
-    global AntecesorPort
 
     print("-----------------------------------------------------")
-    print("IDIni = " + str(IDInit))
-    print("IDFin = " + str(IDFin))
+    print("IDIni = " + str(Globals["IDInit"]))
+    print("IDFin = " + str(Globals["IDFin"]))
     print("-----------------------------------------------------")
 
-def TypeUpload(content,hashkey):
-
-    global PathFile
-    global IDInit
-    global IDFin
-    global AntecesorIP
-    global AntecesorPort
+def TypeUpload(content,hashkey,Globals):
 
     hashPart  = hashlib.new("sha1",content)
     if (hashkey != hashPart.hexdigest() ) :
         return [b"0",b"Error de integridad"]
     else:
 
-        if Checkintervale(IDInit,IDFin,int(hashkey, 16)) :
-            path =  PathFile +"/"+ hashkey + ".rf"
+        if Checkintervale(Globals["IDInit"],Globals["IDFin"],int(hashkey, 16)) :
+            path =  Globals["PathFile"] +"/"+ hashkey + ".rf"
             archivo = open(path,'ab')
 
             archivo.write(content)
             archivo.close()
             return [b"1",b"1",Strencode(hashkey)]
         else:
-            return [b"1",b"2",Strencode(AntecesorIP),Strencode(AntecesorPort)]
+            return [b"1",b"2",Strencode(Globals["AntecesorIP"]),Strencode(Globals["AntecesorPort"])]
 
-def TypeDowload(hashkey):
+def TypeDowload(hashkey,Globals):
 
-    if Checkintervale(IDInit,IDFin,int(hashkey, 16)) :
-        FilePath =  PathFile +"/"+ hashkey + ".rf"
+    if Checkintervale(Globals["IDInit"],Globals["IDFin"],int(hashkey, 16)) :
+        FilePath =  Globals["PathFile"] +"/"+ hashkey + ".rf"
         file = open(FilePath, "rb")
         content = file.read()
         MSJ = [b"1",b"1",content]
@@ -229,11 +175,11 @@ def TypeDowload(hashkey):
         return MSJ
 
     else:
-        return [b"1",b"2",Strencode(AntecesorIP),Strencode(AntecesorPort)]
+        return [b"1",b"2",Strencode(Globals["AntecesorIP"]),Strencode(Globals["AntecesorPort"])]
     
-def TypeGiveFiles(IDini,IDFin):
+def TypeGiveFiles(IDini,IDFin,Globals):
 
-    entries = os.listdir(PathFile)
+    entries = os.listdir(Globals["PathFile"])
     for entry in entries:
         
         if ".rf" in entry : 
@@ -251,32 +197,46 @@ def TypeGiveFiles(IDini,IDFin):
     return [b"1"]
 
 def Init():
+    
+        Globals = {}
+        
+        Globals["AntecesorIP"] = ""
+        
+        Globals["PathFile"] = os.path.dirname(os.path.abspath(__file__))
+        
+        Globals["context"] = zmq.Context()
+        Globals["socketEscucha"] = Globals["context"].socket(zmq.REP)
+        
+        ip_puerto(Globals)
 
-        global socketEscucha
-        getID()
-        if FirstConect() :
+        Globals["socketEscucha"].bind("tcp://*:"+Globals["MyPort"])
+        
+        getID(Globals)
+        
+        
+        if FirstConect(Globals) :
 
             while True:
 
-                MSJData = socketEscucha.recv_multipart()
+                MSJData = Globals["socketEscucha"].recv_multipart()
 
                 Type = Bdecode(MSJData[0])
 
                 if Type == "0" :
 
-                    Respt = CheckNewID(Bdecode(MSJData[1]),Bdecode(MSJData[2]),Bdecode(MSJData[3]))
+                    Respt = CheckNewID(Bdecode(MSJData[1]),Bdecode(MSJData[2]),Bdecode(MSJData[3]),Globals)
 
                 elif Type == "1" :
-                     Respt = TypeUpload(MSJData[1],Bdecode(MSJData[2]))
+                     Respt = TypeUpload(MSJData[1],Bdecode(MSJData[2]),Globals)
 
                 elif Type == "2" :
-                     Respt = TypeDowload(Bdecode(MSJData[1]))
+                     Respt = TypeDowload(Bdecode(MSJData[1]),Globals)
                 
                 elif Type == "3" :
-                     Respt = TypeGiveFiles(Bdecode(MSJData[1]),Bdecode(MSJData[2]))
+                     Respt = TypeGiveFiles(Bdecode(MSJData[1]),Bdecode(MSJData[2]),Globals)
 
 
-                socketEscucha.send_multipart(Respt)
+                Globals["socketEscucha"].send_multipart(Respt)
 
         else:
             print("END")

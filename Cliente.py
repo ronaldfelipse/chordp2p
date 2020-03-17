@@ -2,14 +2,7 @@ import zmq
 import os.path
 import hashlib
 import math
-import json
 
-ps = 1024*1024*2
-context = zmq.Context()
-
-PathFile = os.path.dirname(os.path.abspath(__file__))
-
-SepDir = "\\"
 
 def Strencode(strToEncode):
     return str(strToEncode).encode("utf-8")
@@ -17,10 +10,10 @@ def Strencode(strToEncode):
 def Bdecode(bToEncode):
     return bToEncode.decode("utf-8")
 
-def SendSocketMSJ(IpServer,PortServer,MSJ):
-    global context
+def SendSocketMSJ(IpServer,PortServer,MSJ,Globals):
+
     Path = "tcp://"+str(IpServer)+":"+str(PortServer)
-    socket = context.socket(zmq.REQ)
+    socket = Globals["context"].socket(zmq.REQ)
     socket.connect(Path)
     socket.send_multipart(MSJ)
     Msjresponse = socket.recv_multipart()
@@ -28,42 +21,40 @@ def SendSocketMSJ(IpServer,PortServer,MSJ):
 
     return Msjresponse
 
-def AgregarHashDoc(hashkey,FileName):
+def AgregarHashDoc(hashkey,FileName,Globals):
     
-    WriteinDOC(FileName,hashkey)
+    WriteinDOC(FileName,hashkey,Globals)
     
-def AgregarNameDoc(FileName):
-    WriteinDOC(FileName,FileName)
+def AgregarNameDoc(FileName,Globals):
+    WriteinDOC(FileName,FileName,Globals)
     
     
-def WriteinDOC(FileName,content):
-    
-    global PathFile
-    global SepDir
+def WriteinDOC(FileName,content,Globals):
+
 
     FName = FileName
     FName = FName.split(".")
     FName = FName[0]
     FName = FName+".rf"
-    FName = PathFile +SepDir+ FName
+    FName = Globals["PathFile"] +Globals["SepDir"]+ FName
     
     f = open(FName, "at")
     f.write(content+"\n")
     f.close()
     
 
-def SendPart(IPTemp,PortTemp,content,hashPart,FileName):
+def SendPart(IPTemp,PortTemp,content,hashPart,FileName,Globals):
 
      firstIP = IPTemp
      firstPort = PortTemp
 
      while True:
 
-        MSJData = SendSocketMSJ(IPTemp,PortTemp,[b"1", content,Strencode(hashPart.hexdigest())])
+        MSJData = SendSocketMSJ(IPTemp,PortTemp,[b"1", content,Strencode(hashPart.hexdigest())],Globals)
 
         if (Bdecode(MSJData[0]) == "1"):
              if (Bdecode(MSJData[1]) == "1"):
-                    AgregarHashDoc(Bdecode(MSJData[2]),FileName)
+                    AgregarHashDoc(Bdecode(MSJData[2]),FileName,Globals)
                     return True
              elif (Bdecode(MSJData[1]) == "2"):
                      IPTemp = Bdecode(MSJData[2])
@@ -77,16 +68,13 @@ def SendPart(IPTemp,PortTemp,content,hashPart,FileName):
             return False
 
 
-def Upload():
-
-    global ps
+def Upload(Globals):
 
     FilePath = input("INGRESE LA RUTA DEL ARCHIVO A SUBIR\n")
 
     if os.path.isfile(FilePath) :
 
         NodeIP = input("INGRESE LA IP DE ALGUN NODO\n")
-        NodeIP = "localhost"
         NodePort = input("INGRESE EL PUERTO DEL NODO\n")
 
         file = open(FilePath, "rb")
@@ -95,7 +83,7 @@ def Upload():
 
         file.seek(0, os.SEEK_END)
         size = file.tell()
-        NumParts = math.ceil( size / ps )
+        NumParts = math.ceil( size / Globals["ps"] )
         if NumParts == 0 :
             NumParts = 1
 
@@ -103,25 +91,25 @@ def Upload():
         count = 0
         point = 0
         
-        AgregarNameDoc(FileName)
+        AgregarNameDoc(FileName,Globals)
         
         while True:
 
             count = count + 1
 
             file.seek(int(point))
-            content = file.read(ps)
+            content = file.read(Globals["ps"])
             hashPart  = hashlib.new("sha1",content)
 
-            if (SendPart(NodeIP,NodePort,content,hashPart,FileName)):
+            if (SendPart(NodeIP,NodePort,content,hashPart,FileName,Globals)):
 
                 print("Enviando parte "+str(count)+" de "+ str(NumParts))
 
 
-                if (point + ps) >= size:
+                if (point + Globals["ps"]) >= size:
                     break
                 else:
-                    point = point + ps
+                    point = point + Globals["ps"]
 
             else:
                 print("Error")
@@ -149,15 +137,12 @@ def Menu():
         print("Opcion invalida")
 
 
-def AddParttoDoc(content,hash,Filename):
-
-    global PathFile
-    global SepDir
+def AddParttoDoc(content,hash,Filename,Globals):
 
     hashPart  = hashlib.new("sha1",content)
 
     if hash == hashPart.hexdigest():
-        PathFileSave =  PathFile +SepDir+ Filename
+        PathFileSave =  Globals["PathFile"] +Globals["SepDir"]+ Filename
         archivo = open(PathFileSave,'ab')
         archivo.write(content)
         archivo.close()
@@ -166,14 +151,13 @@ def AddParttoDoc(content,hash,Filename):
         print("Error integridad archivo")
         exit()
 
-def Download():
+def Download(Globals):
 
     FilePath = input("INGRESE LA RUTA DEL ARCHIVO CON LOS HASH\n")
 
     if os.path.isfile(FilePath) :
 
         NodeIP = input("INGRESE LA IP DE ALGUN NODO\n")
-        NodeIP = "localhost"
         NodePort = input("INGRESE EL PUERTO DEL NODO\n")
 
         f = open(FilePath, "rt")
@@ -203,11 +187,11 @@ def Download():
             while True:
                 
             
-                MSJData = SendSocketMSJ(NodeIP,NodePort,[b"2",Strencode(Hash)])
+                MSJData = SendSocketMSJ(NodeIP,NodePort,[b"2",Strencode(Hash)],Globals)
                 if (Bdecode(MSJData[0]) == "1"):
 
                     if (Bdecode(MSJData[1]) == "1"):
-                           AddParttoDoc(MSJData[2],Hash,FileName)
+                           AddParttoDoc(MSJData[2],Hash,FileName,Globals)
                            break
 
                     elif (Bdecode(MSJData[1]) == "2"):
@@ -228,15 +212,22 @@ def Download():
 
 
 def Init():
+    
+        Globals = {}
+        
+        Globals["ps"] = 1024*1024*2
+        Globals["context"] = zmq.Context()
+        Globals["PathFile"] = os.path.dirname(os.path.abspath(__file__))
+        Globals["SepDir"] = "\\"
 
         while True:
 
             op = Menu()
 
             if op == 1 :
-                Upload()
+                Upload(Globals)
             elif op == 2:
-                Download()
+                Download(Globals)
 
 
 
